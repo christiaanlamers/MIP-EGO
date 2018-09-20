@@ -150,7 +150,7 @@ n_job = max(min(5,len(available_gpus)),1)
 
 # use random forest as the surrogate model
 #TODO_CHRIS two surrogate models are needed, so make two
-model = RandomForest(levels=search_space.levels)
+model = RandomForest(levels=search_space.levels,n_estimators=100)
 #TODO_CHRIS two surrogate models are needed, so make accept two
 #TODO_CHRIS best to make sms-mipego class that inherits from mipego
 opt = mipego(search_space, objective, model, ftarget=None,

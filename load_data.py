@@ -8,6 +8,74 @@ import sys
 from mipego.mipego import Solution
 from mipego.Bi_Objective import *
 
+class obj_func(object):
+    def __init__(self, program):
+        self.program = program
+        
+    def __call__(self, cfg, gpu_no):
+        print("calling program with gpu "+str(gpu_no))
+        cmd = ['python3', self.program, '--cfg', str(cfg), str(gpu_no)]
+        outs = ""
+        #outputval = 0
+        outputval = ""
+        try:
+            outs = str(check_output(cmd,stderr=STDOUT, timeout=40000))
+            if os.path.isfile(logfile): 
+                with open(logfile,'a') as f_handle:
+                    f_handle.write(outs)
+            else:
+                with open(logfile,'w') as f_handle:
+                    f_handle.write(outs)
+            outs = outs.split("\\n")
+            
+            #TODO_CHRIS hacky solution
+            #outputval = 0
+            #for i in range(len(outs)-1,1,-1):
+            for i in range(len(outs)-1,-1,-1):
+                #if re.match("^\d+?\.\d+?$", outs[-i]) is None:
+                #CHRIS changed outs[-i] to outs[i]
+                print(outs[i])
+                if re.match("^\(\-?\d+\.?\d*\e?\+?\-?\d*\,\s\-?\d+\.?\d*\e?\+?\-?\d*\)$", outs[i]) is None:
+                    #do nothing
+                    a=1
+                else:
+                    #outputval = -1 * float(outs[-i])
+                    outputval = outs[i]
+            
+            #if np.isnan(outputval):
+            #    outputval = 0
+        except subprocess.CalledProcessError as e:
+            traceback.print_exc()
+            print (e.output)
+        except:
+            print ("Unexpected error:")
+            traceback.print_exc()
+            print (outs)
+            
+            #outputval = 0
+        #TODO_CHRIS hacky solution
+        tuple_str1 = ''
+        tuple_str2 = ''
+        success = True
+        i = 1
+        try:
+            while outputval[i] != ',':
+                tuple_str1 += outputval[i]
+                i += 1
+            i += 1
+            while outputval[i] != ')':
+                tuple_str2 += outputval[i]
+                i += 1
+        except:
+            print("error in receiving answer from gpu " + str(gpu_no))
+            success = False
+        try:
+            tuple = (float(tuple_str1),float(tuple_str2),success)
+        except:
+            tuple = (0.0,0.0,False)
+        #return outputval
+        return tuple
+
 if len(sys.argv) != 3 and len(sys.argv) != 5:
     print("usage: python3 load_data.py 'data_file_name.json' init_solution_number (optional: ref_time ref_loss)")
     exit(0)
@@ -32,6 +100,10 @@ loss_array = data[3]
 n_eval_array = data[4]
 index_array = data[5]
 name_array = data[6]
+
+all_r2 = None
+if len(data) > 7:
+    all_r2 = data[7]
 
 #print(data)
 solutions = []
@@ -59,7 +131,7 @@ x_bound = min(0.0,min(time)),max(time)
 y_bound = min(0.0,min(loss)),max(loss)
 
 plt.ion()
-for i in range(1,len(solutions)):
+for i in range(1,0):#len(solutions)):
     plt.clf()
     plt.xlabel('time')
     plt.ylabel('loss')
@@ -82,13 +154,25 @@ for i in range(1,len(solutions)):
     #plt.set_title('sms-mip-ego')
     #plt.show()
     plt.pause(pauser)
+par = pareto(solutions)
+par_time = [x.time for x in par]
+par_loss = [x.loss for x in par]
 par = sort_par(par)
 HV = hyper_vol(par, solutions, ref_time, ref_loss)
+objective = obj_func('./all-cnn_bi_mbarrier.py')
 print("Hyper Volume:")
 print(HV)
 print("paretofront:")
 for i in range(len(par)):
     print("time: " + str(par[i].time) + ", loss: " + str(par[i].loss) + ", acc: " + str(np.exp(-par[i].loss)))
+if all_r2 is not None:
+    print("all_r2 average:")
+    print(np.average(np.array(all_r2)))
+print(par)
+#for i in range(len(par)):
+#    print(par[i])
+#for i in range(len(par)):
+#    print(objective(par[i]))
 plt.clf()
 plt.xlabel('time')
 plt.ylabel('loss')

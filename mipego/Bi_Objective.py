@@ -16,10 +16,10 @@ def s_metric(solutions,n_left,ref_time=None,ref_loss=None):
     #non-paretofront points receive a penalty
     solutions = penalty(solutions)
     #solutions = eps_penalty(solutions,par,n_left)#TODO_CHRIS this might make no sense, seems to push more towards paretofront if n_left is high
-    print('pareto-front:')
-    if len(par) > 0:
-        for x in par:
-            print('time: ' + str(x.time) + ' loss: ' + str(x.loss) + ' fit:' + str(x.fitness))
+    #print('pareto-front:')
+    #if len(par) > 0:
+    #    for x in par:
+    #        print('time: ' + str(x.time) + ' loss: ' + str(x.loss) + ' fit:' + str(x.fitness))
     return solutions
 
 def penalty(solutions):

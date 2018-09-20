@@ -21,11 +21,9 @@ import re
 import traceback
 import time
 
-np.random.seed(42)
-
 #--------------------------- Configuration settings --------------------------------------
 # TODO: implement parallel execution of model
-n_step = 200
+n_step = 110
 n_init_sample = 90
 verbose = True
 save = False
@@ -98,46 +96,80 @@ class obj_func(object):
         #return outputval
         return tuple
 
+for it in range(10):
+    np.random.seed(it)
+    #define the search space.
+    objective = obj_func('./all-cnn_bi.py')
+    activation_fun = ["softmax"]
+    activation_fun_conv = ["elu","relu","tanh","sigmoid","selu"]
 
-#define the search space.
-objective = obj_func('./all-cnn_bi_mbarrier.py')
+    filters = OrdinalSpace([10, 600], 'filters') * 7
+    kernel_size = OrdinalSpace([1, 6], 'k') * 7
+    strides = OrdinalSpace([1, 5], 's') * 3
+    stack_sizes = OrdinalSpace([1, 5], 'stack') * 3
+    #TODO_CHRIS these changes are just for cigar test function
+    #filters = OrdinalSpace([0, 5], 'filters') * 7
+    #kernel_size = OrdinalSpace([0, 5], 'k') * 7
+    #strides = OrdinalSpace([0, 5], 's') * 3
+    #stack_sizes = OrdinalSpace([0, 5], 'stack') * 3
+    #TODO_CHRIS these changes are just for cigar test function
 
-real_space = ContinuousSpace([0.0, 4.0],'real_space') * 5
-integer_space = OrdinalSpace([0,4],'integer_space') * 5
-discrete_space = NominalSpace(['0','1','2','3','4'],'discrete_space') * 5
+    activation = NominalSpace(activation_fun_conv, "activation")  # activation function
+    activation_dense = NominalSpace(activation_fun, "activ_dense") # activation function for dense layer
+    step = NominalSpace([True, False], "step")  # step
+    global_pooling = NominalSpace([True, False], "global_pooling")  # global_pooling
 
-search_space =  real_space * integer_space * discrete_space
+    drop_out = ContinuousSpace([1e-5, .9], 'dropout') * 4        # drop_out rate
+    lr_rate = ContinuousSpace([1e-4, 1.0e-0], 'lr')        # learning rate
+    l2_regularizer = ContinuousSpace([1e-5, 1e-2], 'l2')# l2_regularizer
+    #TODO_CHRIS these changes are just for cigar test function
+    #drop_out = ContinuousSpace([0.0, .9], 'dropout') * 4        # drop_out rate
+    #lr_rate = ContinuousSpace([0.0, 1.0e-0], 'lr')        # learning rate
+    #l2_regularizer = ContinuousSpace([0.0, 1e-2], 'l2')# l2_regularizer
+    #TODO_CHRIS these changes are just for cigar test function
 
-
-print('starting program...')    
-#available_gpus = gp.getAvailable(limit=2)
-available_gpus = gp.getAvailable(limit=5)
-#try:
-#available_gpus.remove(0)#CHRIS gpu 0 and 5 are differen gpu types on duranium since they are faster, timing will be unreliable, so remove them from list
-#except:
-#pass
-#try:
-#available_gpus.remove(5)
-#except:
-#pass
-print(available_gpus)
-
-n_job = max(min(5,len(available_gpus)),1)
+    search_space =  stack_sizes * strides * filters *  kernel_size * activation * activation_dense * drop_out * lr_rate * l2_regularizer * step * global_pooling
 
 
-# use random forest as the surrogate model
-#CHRIS two surrogate models are needed
-model = RandomForest(levels=search_space.levels,n_estimators=100)
-opt = mipego(search_space, objective, model, ftarget=None,
-                 minimize=True, noisy=False, max_eval=None, max_iter=n_step, 
+    print('starting program...')
+    #available_gpus = gp.getAvailable(limit=2)
+    available_gpus = gp.getAvailable(limit=5)
+    
+    if len(sys.argv) > 1:
+        for i in range(1,int(len(sys.argv))):
+            print(int(sys.argv[i]))
+            try:
+                available_gpus.remove(int(sys.argv[i]))
+            except:
+                pass
+    #try:
+    #available_gpus.remove(0)#CHRIS gpu 0 and 5 are differen gpu types on duranium since they are faster, timing will be unreliable, so remove them from list
+    #except:
+    #pass
+    #try:
+    #available_gpus.remove(5)
+    #except:
+    #pass
+    print(available_gpus)
+
+    n_job = max(min(5,len(available_gpus)),1)
+
+
+    # use random forest as the surrogate model
+    #TODO_CHRIS two surrogate models are needed, so make two
+    model = RandomForest(levels=search_space.levels,n_estimators=100)
+    #TODO_CHRIS two surrogate models are needed, so make accept two
+    #TODO_CHRIS best to make sms-mipego class that inherits from mipego
+    opt = mipego(search_space, objective, model, ftarget=None,
+                 minimize=True, noisy=False, max_eval=None, max_iter=n_step,
                  infill='MGFI', n_init_sample=n_init_sample, n_point=1, n_job=n_job,
-                 n_restart=None, max_infill_eval=None, wait_iter=3, optimizer='MIES', 
+                 n_restart=None, max_infill_eval=None, wait_iter=3, optimizer='MIES',
                  log_file=None, data_file=None, verbose=False, random_seed=None,
-                 available_gpus=available_gpus, bi=True, save_name='data_mbarrier_one_point')
+                 available_gpus=available_gpus, bi=True, save_name='data_mnist_one_model_MGFI_mult_'+str(it))
 
 
 
-incumbent, stop_dict = opt.run()
+    incumbent, stop_dict = opt.run()
 #print('incumbent #TODO_CHRIS makes no sense for now:')
 #for x in incumbent:
 #    try:

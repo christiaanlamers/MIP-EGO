@@ -117,6 +117,7 @@ class mipego(object):
         self.noisy = noisy
         self.surrogate = surrogate
         self.async_surrogates = {}
+        self.all_r2 = []
         self.n_point = n_point
         self.n_jobs = n_job #min(self.n_point, n_job)#CHRIS why restrict n_job with n_points?
         self.available_gpus = available_gpus
@@ -399,6 +400,7 @@ class mipego(object):
                 
                 
                 r2 = r2_score(fitness_scaled, fitness_hat)
+                self.all_r2.append(r2)
                 break
             except Exception as e:
                 print("Error fitting model, retrying...")
@@ -611,7 +613,7 @@ class mipego(object):
             n_eval_array.append(self.data[i].n_eval)
             index_array.append(self.data[i].index)
             name_array.append(self.data[i].var_name)
-            data_array = [conf_array,fit_array,time_array,loss_array,n_eval_array,index_array,name_array]
+            data_array = [conf_array,fit_array,time_array,loss_array,n_eval_array,index_array,name_array,self.all_r2]
         
         with open(filename + '.json', 'w') as outfile:
             json.dump(data_array,outfile)
@@ -757,6 +759,8 @@ class mipego(object):
                 self._annealling()
             elif self.infill == 'UCB':
                 raise NotImplementedError
+            elif self.infill == 'MC':
+                acquisition_func = MC(model=time_surrogate, plugin=plugin, minimize=self.minimize)
             else:
                 print('error: ' + self.infill + ' is not an available infill criteria.')
                 
@@ -819,7 +823,7 @@ class mipego(object):
                                      " state: %s" % stop_dict)
                                 
             elif self._optimizer == 'MIES':
-                opt = mies(self._space, obj_func, max_eval=eval_budget, minimize=self.minimize, verbose=False)
+                opt = mies(self._space, obj_func, max_eval=eval_budget, minimize=False, verbose=False)
                 xopt_, fopt_, stop_dict = opt.optimize()
 
             if fopt_ > best:
